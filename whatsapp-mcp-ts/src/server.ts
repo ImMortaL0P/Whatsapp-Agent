@@ -325,6 +325,52 @@ app.post("/api/send-message", async (req, res) => {
   }
 });
 
+// 6.5. Get Recent Deadlines
+app.get("/api/deadlines", (req, res) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT m.id, m.chat_jid, m.sender, m.content, m.timestamp, 
+             c.name as chat_name,
+             COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+      FROM messages m
+      JOIN chats c ON m.chat_jid = c.jid
+      LEFT JOIN contacts ct ON m.sender = ct.jid
+      WHERE (LOWER(m.content) LIKE '%deadline%' 
+         OR LOWER(m.content) LIKE '%submit%' 
+         OR LOWER(m.content) LIKE '%due%' 
+         OR LOWER(m.content) LIKE '%by %' 
+         OR LOWER(m.content) LIKE '%eod%')
+        AND m.timestamp >= datetime('now', '-7 days')
+      ORDER BY m.timestamp DESC
+      LIMIT 10
+    `).all() as any[];
+
+    const deadlines = rows.map((row) => {
+      const content = row.content || "";
+      const deadlineMatch = content.match(
+        /\b(today|tomorrow|eod|asap|friday|before meeting|by \d+(?:\s*(?:am|pm))?|due\s+\w+)\b/i
+      );
+      const deadlineText = deadlineMatch ? deadlineMatch[0] : "Urgent";
+
+      return {
+        id: row.id,
+        chatJid: row.chat_jid,
+        chatName: row.chat_name || row.chat_jid.split("@")[0],
+        sender: row.sender,
+        senderName: row.sender_name || (row.sender ? row.sender.split("@")[0] : "Other"),
+        content: content,
+        timestamp: row.timestamp,
+        deadlineText: deadlineText
+      };
+    });
+
+    res.json(deadlines);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 7. Executive summary of last 24h & unread summaries
 app.get("/api/unread-summary", async (req, res) => {
   try {

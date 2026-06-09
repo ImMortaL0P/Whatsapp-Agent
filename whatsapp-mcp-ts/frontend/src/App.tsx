@@ -10,7 +10,6 @@ import {
   User,
   Users,
   ArrowLeft,
-  Network,
   Activity,
   Crosshair,
   Loader,
@@ -45,6 +44,16 @@ interface Message {
   content: string;
   timestamp: string;
   isFromMe: boolean;
+}
+
+interface DeadlineDetails {
+  id: string;
+  chatJid: string;
+  chatName: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  deadlineText: string;
 }
 
 interface TerminalLine {
@@ -89,21 +98,46 @@ export default function App() {
   ]);
 
   const [lastSyncedTime, setLastSyncedTime] = useState<string>("Never");
+  const [deadlinesList, setDeadlinesList] = useState<DeadlineDetails[]>([]);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
-  // Poll connection status and chats
+  const fetchDeadlines = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/deadlines`);
+      if (res.ok) {
+        const data = await res.json();
+        setDeadlinesList(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch deadlines list", err);
+    }
+  };
+
+  const handleNavigateToDeadline = (chatJid: string, messageId: string) => {
+    setActiveChatJid(chatJid);
+    setHighlightedMessageId(messageId);
+    setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 4000);
+  };
+
+  // Poll connection status, chats and deadlines list
   useEffect(() => {
     fetchStatus();
     fetchChats();
+    fetchDeadlines();
 
     const statusInterval = setInterval(fetchStatus, 3000);
     const chatsInterval = setInterval(fetchChats, 7000);
+    const deadlinesInterval = setInterval(fetchDeadlines, 10000);
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(chatsInterval);
+      clearInterval(deadlinesInterval);
     };
   }, []);
 
@@ -206,6 +240,7 @@ export default function App() {
         setTimeout(() => {
           fetchStatus();
           fetchChats();
+          fetchDeadlines();
           setSyncLoading(false);
           setLastSyncedTime(new Date().toLocaleTimeString());
           setTerminalHistory(prev => [
@@ -575,7 +610,20 @@ export default function App() {
                       {!m.isFromMe && (
                         <span className="msg-sender-name">{m.senderDisplay}</span>
                       )}
-                      <div className="msg-bubble">
+                      <div 
+                        className="msg-bubble"
+                        style={
+                          m.id === highlightedMessageId
+                            ? {
+                                border: "1px solid var(--color-gemini)",
+                                boxShadow: "0 0 10px rgba(239, 68, 68, 0.4)",
+                                background: "rgba(220, 38, 38, 0.15)",
+                                transition: "all 0.3s ease",
+                                animation: "pulse 0.8s infinite alternate"
+                              }
+                            : {}
+                        }
+                      >
                         <div>{m.content}</div>
                         <div className="msg-timestamp">
                           {new Date(m.timestamp).toLocaleTimeString([], {
@@ -956,36 +1004,58 @@ export default function App() {
           </div>
         </div>
 
-        {/* WIDGET 2: KNOWLEDGE GRAPH */}
+        {/* WIDGET 2: DEADLINES DETAILS */}
         <div>
           <div className="bottom-widget-title">
-            <Network size={12} style={{ marginRight: "4px", verticalAlign: "middle" }} />
-            B-School Relationship Map
+            <Clock size={12} style={{ marginRight: "4px", verticalAlign: "middle" }} />
+            Imminent Deadlines Tracker
           </div>
-          <div className="relationship-container">
-            {/* Center Node (Me) */}
-            <div className="graph-node core" style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)" }}>
-              <User size={12} />
-              Me (Kumar)
-            </div>
-
-            {/* Surrounding Nodes */}
-            <div className="graph-node" style={{ left: "20%", top: "20%" }}>
-              <Users size={12} />
-              GIM HCM Converts
-            </div>
-            <div className="graph-node" style={{ right: "15%", top: "25%" }}>
-              <Zap size={12} />
-              Unstop AIRankers
-            </div>
-            <div className="graph-node" style={{ left: "15%", bottom: "25%" }}>
-              <User size={12} />
-              Satyam (iQuanta DM)
-            </div>
-            <div className="graph-node" style={{ right: "20%", bottom: "20%" }}>
-              <Users size={12} />
-              IIM Kashipur Official
-            </div>
+          <div 
+            style={{ 
+              background: "var(--bg-primary)", 
+              border: "1px solid var(--border-color)", 
+              borderRadius: "var(--radius-md)", 
+              height: "140px", 
+              overflowY: "auto", 
+              padding: "8px" 
+            }}
+          >
+            {deadlinesList.length === 0 ? (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "var(--text-muted)", fontSize: "11px" }}>
+                No active deadlines found in recent chats.
+              </div>
+            ) : (
+              deadlinesList.map((d) => (
+                <div 
+                  key={d.id} 
+                  style={{ 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center", 
+                    borderBottom: "1px solid var(--border-color)", 
+                    padding: "6px 0", 
+                    fontSize: "11px" 
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: "10px" }}>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "2px" }}>
+                      <span style={{ color: "var(--color-critical)", fontWeight: "bold" }}>[{d.deadlineText}]</span>
+                      <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{d.chatName}</span>
+                    </div>
+                    <div style={{ color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {d.senderName}: {d.content}
+                    </div>
+                  </div>
+                  <button 
+                    className="btn" 
+                    style={{ fontSize: "10px", padding: "2px 8px", background: "rgba(220, 38, 38, 0.15)", borderColor: "rgba(220, 38, 38, 0.3)", color: "var(--color-gemini)" }}
+                    onClick={() => handleNavigateToDeadline(d.chatJid, d.id)}
+                  >
+                    Locate &rarr;
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
