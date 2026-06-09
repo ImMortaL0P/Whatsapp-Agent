@@ -1,0 +1,29 @@
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+**/dist/
+
+# Logs
+*.log
+**/wa-logs.txt
+**/mcp-logs.txt
+
+# Baileys authentication data (CRITICAL: Keep session keys local)
+auth_info/
+**/auth_info/
+
+# SQLite Database (CRITICAL: Keep chats private)
+data/
+**/data/
+
+# Environment variables
+.env
+**/.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
+.roo

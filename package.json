@@ -1,0 +1,11 @@
+{
+  "name": "whatsapp-ai-agent-integration",
+  "version": "1.0.0",
+  "description": "WhatsApp AI Chief of Staff Operations Command Center",
+  "scripts": {
+    "install-all": "npm install --prefix whatsapp-mcp-ts && npm install --prefix whatsapp-mcp-ts/frontend",
+    "dev-backend": "cd whatsapp-mcp-ts && node --no-warnings --experimental-strip-types src/main.ts",
+    "dev-frontend": "cd whatsapp-mcp-ts/frontend && npm run dev -- --port 3000 --host 0.0.0.0",
+    "dev": "npx -y concurrently \"npm run dev-backend\" \"npm run dev-frontend\""
+  }
+}
