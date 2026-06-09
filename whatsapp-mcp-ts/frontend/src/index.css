@@ -12,23 +12,23 @@
   --bg-card: #151A20;
   
   --border-color: #262E35;
-  --border-focus: #4F46E5;
+  --border-focus: #DC2626;
   
   --text-primary: #F3F4F6;
   --text-secondary: #9CA3AF;
   --text-muted: #6B7280;
   
-  /* Neon Accents */
+  /* Neon Accents (Crimson Red Tactical Theme) */
   --color-whatsapp: #10B981;
-  --color-gemini: #A78BFA;
-  --color-gemini-gradient: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+  --color-gemini: #EF4444;
+  --color-gemini-gradient: linear-gradient(135deg, #7F1D1D 0%, #DC2626 100%);
   --color-critical: #EF4444;
   --color-important: #F59E0B;
   --color-optional: #3B82F6;
   
-  --accent-glow: 0 0 15px rgba(139, 92, 246, 0.15);
+  --accent-glow: 0 0 15px rgba(220, 38, 38, 0.35);
   --green-glow: 0 0 15px rgba(16, 185, 129, 0.15);
-  --red-glow: 0 0 15px rgba(239, 68, 68, 0.2);
+  --red-glow: 0 0 15px rgba(239, 68, 68, 0.25);
   
   --radius-sm: 4px;
   --radius-md: 8px;

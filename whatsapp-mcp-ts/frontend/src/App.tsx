@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   Network,
   Activity,
-  Sparkles,
+  Crosshair,
   Loader,
   TrendingUp,
   Shield,
@@ -73,7 +73,7 @@ export default function App() {
   const [messageText, setMessageText] = useState("");
   const [terminalInput, setTerminalInput] = useState("");
   const [terminalHistory, setTerminalHistory] = useState<TerminalLine[]>([
-    { type: "info", text: "Gemini AI Terminal initialized." },
+    { type: "info", text: "AI Command Terminal initialized." },
     { type: "info", text: "Type '> help' or click one of the suggested commands below to execute." }
   ]);
   const [syncLoading, setSyncLoading] = useState(false);
@@ -333,9 +333,9 @@ export default function App() {
       <header className="app-header">
         <div className="brand-section">
           <div className="brand-logo">
-            <Sparkles size={16} color="white" />
+            <Crosshair size={16} color="white" />
           </div>
-          <div className="brand-title">Antigravity Operations Command Center</div>
+          <div className="brand-title">WhatsApp Command Center</div>
           <div className="brand-badge">AI Chief of Staff</div>
         </div>
 
@@ -605,7 +605,7 @@ export default function App() {
             <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <div className="panel-header">
                 <div className="panel-title">
-                  <Sparkles size={14} color="var(--color-gemini)" />
+                  <Crosshair size={14} color="var(--color-gemini)" />
                   Executive Intelligence Feed
                 </div>
                 <button
@@ -620,7 +620,7 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <Sparkles size={13} />
+                      <Crosshair size={13} />
                       Generate AI Summary
                     </>
                   )}
@@ -659,7 +659,7 @@ export default function App() {
                 {/* 1. EXECUTIVE SUMMARY SECTION */}
                 <div className="card">
                   <div className="card-title">
-                    <Sparkles size={14} color="var(--color-gemini)" />
+                    <Crosshair size={14} color="var(--color-gemini)" />
                     Last 24 Hours Executive Summary
                   </div>
                   {aiSummary ? (
@@ -832,7 +832,7 @@ export default function App() {
           <div className="panel-header">
             <div className="panel-title">
               <TerminalIcon size={14} color="var(--color-gemini)" />
-              Gemini AI Terminal
+              AI Command Terminal
             </div>
             <button className="btn" style={{ padding: "4px 8px" }} onClick={() => handleExecuteCommand("> clear")}>
               Clear

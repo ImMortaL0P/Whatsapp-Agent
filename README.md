@@ -1,8 +1,8 @@
-# WhatsApp AI Chief of Staff Dashboard (Operations Command Center)
+# WhatsApp Command Center (AI Chief of Staff)
 
 A premium Operations Command Center application that sits on top of WhatsApp (via a local Baileys connection and SQLite database) and acts as an AI Chief of Staff. It translates messy B-School and MBA preparation groups (GIM, GLIM, IIM Kashipur, IMTG, etc.) into summaries, tasks, deadlines, and actionable briefing documents.
 
-Inspired by Notion + Linear + Bloomberg Terminal styling, featuring a default dark mode, a command terminal, and AI-driven panels.
+Inspired by Notion + Linear + Bloomberg Terminal styling, featuring a default dark mode with tactical crimson red accents, a command terminal, and AI-driven panels.
 
 ## 🚀 Getting Started
 
