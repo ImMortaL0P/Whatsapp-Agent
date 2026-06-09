@@ -231,7 +231,10 @@ export function getMessages(
   try {
     const offset = page * limit;
     const stmt = db.prepare(`
-            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+            SELECT 
+              m.id, m.chat_jid, m.sender, m.content, m.timestamp, m.is_from_me,
+              c.name as chat_name,
+              COALESCE(m.sender_name, ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
             LEFT JOIN contacts ct ON m.sender = ct.jid
@@ -352,7 +355,10 @@ export function getMessagesAround(
 
   try {
     const targetStmt = db.prepare(`
-             SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+             SELECT 
+               m.id, m.chat_jid, m.sender, m.content, m.timestamp, m.is_from_me,
+               c.name as chat_name,
+               COALESCE(m.sender_name, ct.name, ct.notify, ct.phone_number) as sender_name
              FROM messages m
              JOIN chats c ON m.chat_jid = c.jid
              LEFT JOIN contacts ct ON m.sender = ct.jid
@@ -368,7 +374,10 @@ export function getMessagesAround(
     const chatJid = result.target.chat_jid;
 
     const beforeStmt = db.prepare(`
-            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+            SELECT 
+              m.id, m.chat_jid, m.sender, m.content, m.timestamp, m.is_from_me,
+              c.name as chat_name,
+              COALESCE(m.sender_name, ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
             LEFT JOIN contacts ct ON m.sender = ct.jid
@@ -384,7 +393,10 @@ export function getMessagesAround(
     result.before = beforeRows.map(rowToMessage).reverse();
 
     const afterStmt = db.prepare(`
-            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+            SELECT 
+              m.id, m.chat_jid, m.sender, m.content, m.timestamp, m.is_from_me,
+              c.name as chat_name,
+              COALESCE(m.sender_name, ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
             LEFT JOIN contacts ct ON m.sender = ct.jid
@@ -446,11 +458,13 @@ export function searchMessages(
     const offset = page * limit;
     const searchPattern = `%${searchQuery}%`;
     let sql = `
-            SELECT m.*, COALESCE(c.name, ct.name, ct.notify, ct.phone_number) as chat_name,
-                   COALESCE(cts.name, cts.notify, cts.phone_number) as sender_name
+            SELECT 
+              m.id, m.chat_jid, m.sender, m.content, m.timestamp, m.is_from_me,
+              COALESCE(c.name, ct_chat.name, ct_chat.notify, ct_chat.phone_number) as chat_name,
+              COALESCE(m.sender_name, cts.name, cts.notify, cts.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
-            LEFT JOIN contacts ct ON c.jid = ct.jid
+            LEFT JOIN contacts ct_chat ON c.jid = ct_chat.jid
             LEFT JOIN contacts cts ON m.sender = cts.jid
             WHERE LOWER(m.content) LIKE LOWER(?)
         `;

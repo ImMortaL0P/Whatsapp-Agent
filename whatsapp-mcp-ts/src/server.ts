@@ -202,7 +202,33 @@ app.delete("/api/afk/log", (req, res) => {
   res.json({ success: true, message: "AFK log cleared" });
 });
 
-// 2. Connect Endpoint (Manual login trigger)
+// 1.8. Backfill sender names from contacts into messages table
+// Call this once to populate sender_name for historical messages
+app.post("/api/admin/backfill-sender-names", (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare(`
+      UPDATE messages SET sender_name = (
+        SELECT COALESCE(ct.name, ct.notify, ct.phone_number)
+        FROM contacts ct
+        WHERE ct.jid = messages.sender
+        AND COALESCE(ct.name, ct.notify, ct.phone_number) IS NOT NULL
+      )
+      WHERE sender_name IS NULL
+        AND sender IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM contacts ct
+          WHERE ct.jid = messages.sender
+          AND COALESCE(ct.name, ct.notify, ct.phone_number) IS NOT NULL
+        )
+    `).run();
+    res.json({ success: true, rowsUpdated: result.changes });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 app.post("/api/connect", (req, res) => {
   if (socketContainer.connectionStatus === "disconnected") {
     startWhatsAppConnection(logger).catch((err) => {
@@ -349,18 +375,25 @@ app.get("/api/chats/:jid/messages", (req, res) => {
     const page = Number(req.query.page) || 0;
     const messages = getMessages(jid, limit, page);
     
-    const formattedMessages = messages.map((m) => ({
-      id: m.id,
-      chatJid: m.chat_jid,
-      sender: m.sender,
-      // Priority: stored sender_name (pushName) > contacts table name > number from JID
-      senderDisplay: m.is_from_me
+    const formattedMessages = messages.map((m) => {
+      // sender_name comes from COALESCE(m.sender_name, ct.name, ct.notify) in DB query
+      const name = m.is_from_me
         ? "Me"
-        : (m.sender_name || null) ?? (m.sender ? m.sender.split("@")[0] : "Unknown"),
-      content: m.content,
-      timestamp: m.timestamp,
-      isFromMe: m.is_from_me,
-    }));
+        : (m.sender_name && m.sender_name.trim())
+          ? m.sender_name.trim()
+          : m.sender
+            ? m.sender.split("@")[0]
+            : "Unknown";
+      return {
+        id: m.id,
+        chatJid: m.chat_jid,
+        sender: m.sender,
+        senderDisplay: name,
+        content: m.content,
+        timestamp: m.timestamp,
+        isFromMe: m.is_from_me,
+      };
+    });
     
     // Sort in ascending order for UI display
     formattedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());

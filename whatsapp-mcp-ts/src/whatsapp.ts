@@ -281,6 +281,15 @@ export async function startWhatsAppConnection(
               `Storing message: ${parsed.content.substring(0, 50)}...`
             );
             storeMessage(parsed);
+
+            // If this message has a pushName, upsert it into contacts so the JOIN works
+            // for historical messages too (backfills via the contacts table)
+            if (parsed.sender && parsed.sender_name) {
+              storeContact({
+                jid: parsed.sender,
+                notify: parsed.sender_name,
+              });
+            }
             
             // Increment unread count if it's a new incoming notification message
             if (!parsed.is_from_me && type === "notify") {
@@ -374,10 +383,42 @@ export async function startWhatsAppConnection(
         });
       }
     }
+
+    // Handle live contact updates - captures pushName and phone number links
+    if (events["contacts.upsert"]) {
+      const contacts = events["contacts.upsert"];
+      logger.info({ count: contacts.length }, "Received contacts.upsert event");
+      contacts.forEach((c) => {
+        if (c.id) {
+          storeContact({
+            jid: c.id,
+            name: (c as any).name ?? null,
+            notify: (c as any).notify ?? null,
+            phoneNumber: (c as any).phoneNumber ?? null,
+          });
+        }
+      });
+    }
+
+    if (events["contacts.update"]) {
+      const updates = events["contacts.update"];
+      logger.info({ count: updates.length }, "Received contacts.update event");
+      updates.forEach((c) => {
+        if (c.id) {
+          storeContact({
+            jid: c.id,
+            name: (c as any).name ?? null,
+            notify: (c as any).notify ?? null,
+          });
+        }
+      });
+    }
   });
 
   return sock;
 }
+
+
 
 export async function sendWhatsAppMessage(
   logger: P.Logger,
