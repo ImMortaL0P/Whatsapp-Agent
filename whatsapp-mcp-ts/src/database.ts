@@ -98,6 +98,17 @@ export function initializeDatabase(): DatabaseSync {
     `CREATE INDEX IF NOT EXISTS idx_chats_last_message_time ON chats (last_message_time);`,
   );
 
+  db.exec(`
+        CREATE TABLE IF NOT EXISTS afk_triggers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_jid TEXT,
+            sender_jid TEXT,
+            incoming_message TEXT,
+            reply_message TEXT,
+            timestamp TEXT
+        );
+    `);
+
   return db;
 }
 
@@ -562,6 +573,49 @@ export function incrementUnreadCount(chatJid: string): void {
     stmt.run(chatJid);
   } catch (error) {
     console.error("Error incrementing unread count:", error);
+  }
+}
+
+export function storeAfkTrigger(trigger: {
+  chatJid: string;
+  senderJid: string | null;
+  incomingMessage: string;
+  replyMessage: string;
+}): void {
+  const db = getDb();
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO afk_triggers (chat_jid, sender_jid, incoming_message, reply_message, timestamp)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      trigger.chatJid,
+      trigger.senderJid ?? null,
+      trigger.incomingMessage,
+      trigger.replyMessage,
+      new Date().toISOString()
+    );
+  } catch (error) {
+    console.error("Error storing AFK trigger:", error);
+  }
+}
+
+export function getAfkTriggers(): any[] {
+  const db = getDb();
+  try {
+    const stmt = db.prepare(`
+      SELECT t.*, 
+             c.name as chat_name,
+             COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
+      FROM afk_triggers t
+      LEFT JOIN chats c ON t.chat_jid = c.jid
+      LEFT JOIN contacts ct ON t.sender_jid = ct.jid
+      ORDER BY t.timestamp DESC
+    `);
+    return stmt.all() as any[];
+  } catch (error) {
+    console.error("Error getting AFK triggers:", error);
+    return [];
   }
 }
 

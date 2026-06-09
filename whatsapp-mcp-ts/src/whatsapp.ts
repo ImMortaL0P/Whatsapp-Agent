@@ -56,6 +56,19 @@ export const afkConfig: AfkConfig = {
   replyToDMs: true,
 };
 
+export interface AfkLogEntry {
+  id: string;
+  chatJid: string;
+  chatName: string;
+  senderDisplay: string;
+  incomingContent: string;
+  afkReplyContent: string;
+  timestamp: string;
+  type: "dm" | "mention";
+}
+
+export const afkLog: AfkLogEntry[] = [];
+
 const lastReplyTimes = new Map<string, number>();
 
 function parseMessageForDb(msg: WAMessage): DbMessage | null {
@@ -294,6 +307,24 @@ export async function startWhatsAppConnection(
                     
                     const signature = "\n\n— Sent by Antigravity Chief of Staff";
                     const fullMessage = afkConfig.message + signature;
+
+                    // Resolve a human-readable chat name from socketContainer if available
+                    const chatName = socketContainer.sock?.store?.chats?.get(parsed.chat_jid)?.name
+                      || parsed.chat_jid.split("@")[0];
+
+                    // Record this trigger in the AFK log
+                    const logEntry: AfkLogEntry = {
+                      id: `${parsed.id}-${now}`,
+                      chatJid: parsed.chat_jid,
+                      chatName,
+                      senderDisplay: parsed.sender?.split("@")[0] || "Unknown",
+                      incomingContent: parsed.content,
+                      afkReplyContent: fullMessage,
+                      timestamp: new Date().toISOString(),
+                      type: isGroup ? "mention" : "dm",
+                    };
+                    afkLog.unshift(logEntry); // newest first
+                    if (afkLog.length > 200) afkLog.pop(); // cap at 200 entries
                     
                     sock.sendMessage(parsed.chat_jid, { text: fullMessage })
                       .then((sentMsg) => {

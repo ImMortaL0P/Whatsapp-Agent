@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { socketContainer, startWhatsAppConnection, afkConfig } from "./whatsapp.ts";
+import { socketContainer, startWhatsAppConnection, afkConfig, afkLog } from "./whatsapp.ts";
 import { getChats, getMessages, getUnreadMessagesGrouped, searchMessages } from "./database.ts";
 import { jidNormalizedUser } from "@whiskeysockets/baileys";
 import P from "pino";
@@ -155,6 +155,17 @@ app.post("/api/afk", (req, res) => {
   if (replyToDMs !== undefined) afkConfig.replyToDMs = Boolean(replyToDMs);
   
   res.json({ success: true, afkConfig });
+});
+
+// 1.6. AFK Log Endpoint - returns history of messages that triggered AFK auto-reply
+app.get("/api/afk/log", (req, res) => {
+  res.json(afkLog);
+});
+
+// 1.7. Clear AFK Log
+app.delete("/api/afk/log", (req, res) => {
+  afkLog.splice(0, afkLog.length);
+  res.json({ success: true, message: "AFK log cleared" });
 });
 
 // 2. Connect Endpoint (Manual login trigger)

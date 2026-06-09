@@ -16,7 +16,10 @@ import {
   TrendingUp,
   Sliders,
   Shield,
-  Zap
+  Zap,
+  MessageSquare,
+  Trash2,
+  LayoutDashboard
 } from "lucide-react";
 
 const API_BASE = "http://localhost:3002";
@@ -60,6 +63,17 @@ interface DeadlineDetails {
 interface TerminalLine {
   type: "command" | "output" | "error" | "info";
   text: string;
+}
+
+interface AfkLogEntry {
+  id: string;
+  chatJid: string;
+  chatName: string;
+  senderDisplay: string;
+  incomingContent: string;
+  afkReplyContent: string;
+  timestamp: string;
+  type: "dm" | "mention";
 }
 
 export default function App() {
@@ -110,6 +124,10 @@ export default function App() {
     replyToDMs: true
   });
   const [showAfkSettings, setShowAfkSettings] = useState(false);
+  const [afkLog, setAfkLog] = useState<AfkLogEntry[]>([]);
+
+  // Tab state: 'dashboard' | 'afk-log'
+  const [activeTab, setActiveTab] = useState<"dashboard" | "afk-log">("dashboard");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -146,6 +164,27 @@ export default function App() {
     }
   };
 
+  const fetchAfkLog = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/afk/log`);
+      if (res.ok) {
+        const data = await res.json();
+        setAfkLog(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch AFK log", err);
+    }
+  };
+
+  const handleClearAfkLog = async () => {
+    try {
+      await fetch(`${API_BASE}/api/afk/log`, { method: "DELETE" });
+      setAfkLog([]);
+    } catch (err) {
+      console.error("Failed to clear AFK log", err);
+    }
+  };
+
   const handleUpdateAfk = async (updated: typeof afkState) => {
     try {
       const res = await fetch(`${API_BASE}/api/afk`, {
@@ -173,15 +212,18 @@ export default function App() {
     fetchChats();
     fetchDeadlines();
     fetchAfk();
+    fetchAfkLog();
 
     const statusInterval = setInterval(fetchStatus, 3000);
     const chatsInterval = setInterval(fetchChats, 7000);
     const deadlinesInterval = setInterval(fetchDeadlines, 10000);
+    const afkLogInterval = setInterval(fetchAfkLog, 5000);
 
     return () => {
       clearInterval(statusInterval);
       clearInterval(chatsInterval);
       clearInterval(deadlinesInterval);
+      clearInterval(afkLogInterval);
     };
   }, []);
 
@@ -422,6 +464,37 @@ export default function App() {
           <div className="brand-badge">AI Chief of Staff</div>
         </div>
 
+        {/* TAB NAVIGATION */}
+        <div style={{ display: "flex", gap: "4px", background: "var(--bg-primary)", borderRadius: "var(--radius-md)", padding: "3px" }}>
+          <button
+            className={`btn ${activeTab === "dashboard" ? "btn-primary" : ""}`}
+            style={activeTab === "dashboard"
+              ? { background: "var(--color-critical)", border: "none", boxShadow: "var(--red-glow)", fontSize: "11px", padding: "5px 10px" }
+              : { fontSize: "11px", padding: "5px 10px", border: "none", background: "transparent", color: "var(--text-muted)" }
+            }
+            onClick={() => setActiveTab("dashboard")}
+          >
+            <LayoutDashboard size={12} />
+            Dashboard
+          </button>
+          <button
+            className={`btn ${activeTab === "afk-log" ? "btn-primary" : ""}`}
+            style={activeTab === "afk-log"
+              ? { background: "var(--color-critical)", border: "none", boxShadow: "var(--red-glow)", fontSize: "11px", padding: "5px 10px" }
+              : { fontSize: "11px", padding: "5px 10px", border: "none", background: "transparent", color: "var(--text-muted)" }
+            }
+            onClick={() => setActiveTab("afk-log")}
+          >
+            <MessageSquare size={12} />
+            AFK Log
+            {afkLog.length > 0 && (
+              <span style={{ background: "var(--color-critical)", color: "white", borderRadius: "10px", fontSize: "9px", padding: "1px 5px", marginLeft: "4px", fontWeight: 700 }}>
+                {afkLog.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         <div className="header-actions">
           {/* WhatsApp status details */}
           <div className="status-pill">
@@ -563,7 +636,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. THREE-PANEL CORE LAYOUT */}
+      {/* CONDITIONAL RENDER: DASHBOARD vs AFK LOG TAB */}
+      {activeTab === "dashboard" ? (
+        <>
+          {/* 2. THREE-PANEL CORE LAYOUT */}
       <div className="main-content">
         {/* PANEL A: SMART CHAT NAVIGATOR (LEFT) */}
         <aside className="panel">
@@ -1235,6 +1311,178 @@ export default function App() {
           </div>
         </div>
       </footer>
+        </>
+      ) : (
+        /* ============================================================ */
+        /* AFK LOG TAB                                                  */
+        /* ============================================================ */
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "16px", gap: "12px" }}>
+          {/* Header Row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "8px", background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)" }}>
+                <MessageSquare size={16} color="var(--color-critical)" />
+              </div>
+              <div>
+                <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>AFK Auto-Reply Log</h2>
+                <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
+                  Messages that triggered an AFK auto-response while you were away
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: "6px 12px", fontSize: "12px" }}>
+                <Shield size={12} color={afkState.active ? "var(--color-critical)" : "var(--text-muted)"} />
+                <span style={{ color: afkState.active ? "var(--color-critical)" : "var(--text-muted)" }}>
+                  AFK Mode: {afkState.active ? "ACTIVE" : "OFF"}
+                </span>
+              </div>
+              <button
+                className="btn"
+                style={{ fontSize: "11px" }}
+                onClick={fetchAfkLog}
+              >
+                <RefreshCw size={12} />
+                Refresh
+              </button>
+              {afkLog.length > 0 && (
+                <button
+                  className="btn"
+                  style={{ fontSize: "11px", color: "var(--color-critical)", borderColor: "rgba(220,38,38,0.3)" }}
+                  onClick={handleClearAfkLog}
+                >
+                  <Trash2 size={12} />
+                  Clear Log
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          {afkLog.length > 0 && (
+            <div style={{ display: "flex", gap: "12px" }}>
+              {[
+                { label: "Total Triggers", value: afkLog.length, color: "var(--color-critical)" },
+                { label: "DM Replies", value: afkLog.filter(e => e.type === "dm").length, color: "var(--color-gemini)" },
+                { label: "Group Mentions", value: afkLog.filter(e => e.type === "mention").length, color: "var(--color-important)" },
+                { label: "Unique Chats", value: new Set(afkLog.map(e => e.chatJid)).size, color: "var(--color-whatsapp)" },
+              ].map(stat => (
+                <div key={stat.label} style={{ flex: 1, background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "var(--radius-md)", padding: "10px 14px" }}>
+                  <div style={{ fontSize: "20px", fontWeight: 700, color: stat.color }}>{stat.value}</div>
+                  <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", marginTop: "2px" }}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Log entries */}
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
+            {afkLog.length === 0 ? (
+              <div style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+                gap: "12px",
+                padding: "60px 0"
+              }}>
+                <div style={{ width: "60px", height: "60px", borderRadius: "50%", background: "var(--bg-card)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border-color)" }}>
+                  <MessageSquare size={28} color="var(--border-color)" />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "6px", color: "var(--text-secondary)" }}>No AFK triggers yet</div>
+                  <div style={{ fontSize: "12px", lineHeight: 1.6 }}>
+                    When AFK mode is active, any message that receives an auto-reply<br/>
+                    will appear here with full context.
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ background: "var(--color-critical)", border: "none", boxShadow: "var(--red-glow)", marginTop: "8px" }}
+                  onClick={() => handleToggleAfk(true)}
+                >
+                  <Shield size={13} /> Activate AFK Mode
+                </button>
+              </div>
+            ) : (
+              afkLog.map((entry) => (
+                <div
+                  key={entry.id}
+                  style={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "var(--radius-lg)",
+                    padding: "14px 16px",
+                    transition: "border-color 0.2s",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(220,38,38,0.4)")}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border-color)")}
+                >
+                  {/* Left accent bar */}
+                  <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "3px", background: entry.type === "dm" ? "var(--color-gemini)" : "var(--color-important)" }} />
+
+                  {/* Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: entry.type === "dm" ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {entry.type === "dm" ? <User size={14} color="var(--color-gemini)" /> : <Users size={14} color="var(--color-important)" />}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>{entry.chatName}</div>
+                        <div style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                          From: {entry.senderDisplay} &nbsp;•&nbsp;
+                          <span style={{ color: entry.type === "dm" ? "var(--color-gemini)" : "var(--color-important)", textTransform: "uppercase", fontWeight: 600, fontSize: "9px" }}>
+                            {entry.type === "dm" ? "Direct Message" : "Group Mention"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                        <Clock size={10} style={{ display: "inline", marginRight: "3px", verticalAlign: "middle" }} />
+                        {new Date(entry.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                      <button
+                        className="btn"
+                        style={{ fontSize: "10px", padding: "2px 8px" }}
+                        onClick={() => { setActiveChatJid(entry.chatJid); setActiveTab("dashboard"); }}
+                      >
+                        Open Chat →
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Message content */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    {/* Incoming */}
+                    <div style={{ background: "var(--bg-primary)", borderRadius: "var(--radius-md)", padding: "10px" }}>
+                      <div style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <AlertCircle size={9} /> Incoming Message
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                        {entry.incomingContent}
+                      </div>
+                    </div>
+                    {/* AFK Reply */}
+                    <div style={{ background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.15)", borderRadius: "var(--radius-md)", padding: "10px" }}>
+                      <div style={{ fontSize: "9px", color: "var(--color-critical)", textTransform: "uppercase", fontWeight: 600, marginBottom: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <Shield size={9} /> AFK Auto-Reply Sent
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5, whiteSpace: "pre-line" }}>
+                        {entry.afkReplyContent}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
