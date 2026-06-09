@@ -153,6 +153,8 @@ export default function App() {
   };
 
   const fetchAfk = async () => {
+    // Don't overwrite local state while the user is editing the AFK settings panel
+    if (showAfkSettings) return;
     try {
       const res = await fetch(`${API_BASE}/api/afk`);
       if (res.ok) {
@@ -186,6 +188,8 @@ export default function App() {
   };
 
   const handleUpdateAfk = async (updated: typeof afkState) => {
+    // Optimistically apply changes immediately so UI feels instant
+    setAfkState(updated);
     try {
       const res = await fetch(`${API_BASE}/api/afk`, {
         method: "POST",
@@ -227,10 +231,15 @@ export default function App() {
     };
   }, []);
 
-  // Poll messages when active chat changes
+  // Poll messages when active chat changes; also mark the chat as read
   useEffect(() => {
     if (!activeChatJid) return;
     fetchMessages(activeChatJid);
+
+    // Mark the chat as read to reset its unread badge
+    fetch(`${API_BASE}/api/chats/${encodeURIComponent(activeChatJid)}/read`, { method: "POST" })
+      .then(() => fetchChats()) // refresh chats to update badge counts
+      .catch(() => {});
 
     const msgsInterval = setInterval(() => {
       fetchMessages(activeChatJid);

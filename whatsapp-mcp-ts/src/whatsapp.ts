@@ -134,6 +134,7 @@ function parseMessageForDb(msg: WAMessage): DbMessage | null {
     id: msg.key.id!,
     chat_jid: msg.key.remoteJid,
     sender: senderJid ? jidNormalizedUser(senderJid) : null,
+    sender_name: msg.pushName ?? null,
     content: content,
     timestamp: timestamp,
     is_from_me: msg.key.fromMe ?? false,

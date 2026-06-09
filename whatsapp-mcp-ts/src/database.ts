@@ -109,6 +109,17 @@ export function initializeDatabase(): DatabaseSync {
         );
     `);
 
+  // Dynamically add sender_name column to messages if it doesn't exist
+  try {
+    const msgInfo = db.prepare("PRAGMA table_info(messages)").all() as any[];
+    const hasSenderName = msgInfo.some((col) => col.name === "sender_name");
+    if (!hasSenderName) {
+      db.exec("ALTER TABLE messages ADD COLUMN sender_name TEXT;");
+    }
+  } catch (err) {
+    console.error("Failed to migrate messages to add sender_name column:", err);
+  }
+
   return db;
 }
 
@@ -147,8 +158,8 @@ export function storeMessage(message: Message): void {
     storeChat({ jid: message.chat_jid, last_message_time: message.timestamp });
 
     const stmt = db.prepare(`
-            INSERT OR REPLACE INTO messages (id, chat_jid, sender, content, timestamp, is_from_me)
-            VALUES (@id, @chat_jid, @sender, @content, @timestamp, @is_from_me)
+            INSERT OR REPLACE INTO messages (id, chat_jid, sender, content, timestamp, is_from_me, sender_name)
+            VALUES (@id, @chat_jid, @sender, @content, @timestamp, @is_from_me, @sender_name)
         `);
 
     stmt.run({
@@ -158,6 +169,7 @@ export function storeMessage(message: Message): void {
       content: message.content,
       timestamp: message.timestamp.toISOString(),
       is_from_me: message.is_from_me ? 1 : 0,
+      sender_name: message.sender_name ?? null,
     });
 
     const updateChatTimeStmt = db.prepare(`
@@ -573,6 +585,18 @@ export function incrementUnreadCount(chatJid: string): void {
     stmt.run(chatJid);
   } catch (error) {
     console.error("Error incrementing unread count:", error);
+  }
+}
+
+export function resetUnreadCount(chatJid: string): void {
+  const db = getDb();
+  try {
+    const stmt = db.prepare(`
+      UPDATE chats SET unread_count = 0 WHERE jid = ?
+    `);
+    stmt.run(chatJid);
+  } catch (error) {
+    console.error("Error resetting unread count:", error);
   }
 }
 

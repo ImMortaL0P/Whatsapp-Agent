@@ -4,9 +4,40 @@ import path from "node:path";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { socketContainer, startWhatsAppConnection, afkConfig, afkLog } from "./whatsapp.ts";
-import { getChats, getMessages, getUnreadMessagesGrouped, searchMessages } from "./database.ts";
+import { getChats, getMessages, getUnreadMessagesGrouped, searchMessages, resetUnreadCount } from "./database.ts";
 import { jidNormalizedUser } from "@whiskeysockets/baileys";
 import P from "pino";
+
+const DATA_DIR_PATH = path.join(import.meta.dirname, "..", "data");
+const AFK_CONFIG_FILE = path.join(DATA_DIR_PATH, "afk_config.json");
+
+// Load persisted AFK config on startup
+function loadAfkConfig() {
+  try {
+    if (fs.existsSync(AFK_CONFIG_FILE)) {
+      const raw = fs.readFileSync(AFK_CONFIG_FILE, "utf-8");
+      const saved = JSON.parse(raw);
+      if (saved.message !== undefined) afkConfig.message = saved.message;
+      if (saved.replyToMentions !== undefined) afkConfig.replyToMentions = Boolean(saved.replyToMentions);
+      if (saved.replyToDMs !== undefined) afkConfig.replyToDMs = Boolean(saved.replyToDMs);
+      // Always start with AFK inactive on server restart for safety
+      afkConfig.active = false;
+    }
+  } catch (err) {
+    console.error("Failed to load AFK config:", err);
+  }
+}
+
+function saveAfkConfig() {
+  try {
+    if (!fs.existsSync(DATA_DIR_PATH)) fs.mkdirSync(DATA_DIR_PATH, { recursive: true });
+    fs.writeFileSync(AFK_CONFIG_FILE, JSON.stringify(afkConfig, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to save AFK config:", err);
+  }
+}
+
+loadAfkConfig();
 
 const logger = P({
   level: "info",
@@ -153,6 +184,9 @@ app.post("/api/afk", (req, res) => {
   if (message !== undefined) afkConfig.message = String(message);
   if (replyToMentions !== undefined) afkConfig.replyToMentions = Boolean(replyToMentions);
   if (replyToDMs !== undefined) afkConfig.replyToDMs = Boolean(replyToDMs);
+  
+  // Persist to file so config survives server restarts
+  saveAfkConfig();
   
   res.json({ success: true, afkConfig });
 });
@@ -319,7 +353,10 @@ app.get("/api/chats/:jid/messages", (req, res) => {
       id: m.id,
       chatJid: m.chat_jid,
       sender: m.sender,
-      senderDisplay: m.is_from_me ? "Me" : m.sender_name || (m.sender ? m.sender.split("@")[0] : "Unknown"),
+      // Priority: stored sender_name (pushName) > contacts table name > number from JID
+      senderDisplay: m.is_from_me
+        ? "Me"
+        : (m.sender_name || null) ?? (m.sender ? m.sender.split("@")[0] : "Unknown"),
       content: m.content,
       timestamp: m.timestamp,
       isFromMe: m.is_from_me,
@@ -329,6 +366,17 @@ app.get("/api/chats/:jid/messages", (req, res) => {
     formattedMessages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     res.json(formattedMessages);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5.5. Mark chat as read (resets unread count)
+app.post("/api/chats/:jid/read", (req, res) => {
+  try {
+    const { jid } = req.params;
+    resetUnreadCount(jid);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
