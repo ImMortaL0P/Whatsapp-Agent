@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { socketContainer, startWhatsAppConnection } from "./whatsapp.ts";
+import { socketContainer, startWhatsAppConnection, afkConfig } from "./whatsapp.ts";
 import { getChats, getMessages, getUnreadMessagesGrouped, searchMessages } from "./database.ts";
 import { jidNormalizedUser } from "@whiskeysockets/baileys";
 import P from "pino";
@@ -140,6 +140,21 @@ app.get("/api/status", (req, res) => {
     error: socketContainer.error,
     user: socketContainer.userName || null,
   });
+});
+
+// 1.5. AFK Mode Endpoints
+app.get("/api/afk", (req, res) => {
+  res.json(afkConfig);
+});
+
+app.post("/api/afk", (req, res) => {
+  const { active, message, replyToMentions, replyToDMs } = req.body;
+  if (active !== undefined) afkConfig.active = Boolean(active);
+  if (message !== undefined) afkConfig.message = String(message);
+  if (replyToMentions !== undefined) afkConfig.replyToMentions = Boolean(replyToMentions);
+  if (replyToDMs !== undefined) afkConfig.replyToDMs = Boolean(replyToDMs);
+  
+  res.json({ success: true, afkConfig });
 });
 
 // 2. Connect Endpoint (Manual login trigger)

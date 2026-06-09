@@ -42,6 +42,22 @@ export const socketContainer: SocketContainer = {
   userName: null,
 };
 
+export interface AfkConfig {
+  active: boolean;
+  message: string;
+  replyToMentions: boolean;
+  replyToDMs: boolean;
+}
+
+export const afkConfig: AfkConfig = {
+  active: false,
+  message: "Hi, I am currently away from my keyboard. I will get back to you as soon as possible.",
+  replyToMentions: true,
+  replyToDMs: true,
+};
+
+const lastReplyTimes = new Map<string, number>();
+
 function parseMessageForDb(msg: WAMessage): DbMessage | null {
   if (!msg.message || !msg.key || !msg.key.remoteJid) {
     return null;
@@ -255,6 +271,50 @@ export async function startWhatsAppConnection(
             // Increment unread count if it's a new incoming notification message
             if (!parsed.is_from_me && type === "notify") {
               incrementUnreadCount(parsed.chat_jid);
+
+              // AFK Auto-Reply Trigger
+              if (afkConfig.active) {
+                const isGroup = parsed.chat_jid.endsWith("@g.us");
+                let shouldReply = false;
+
+                if (isGroup && afkConfig.replyToMentions) {
+                  const lowerContent = parsed.content.toLowerCase();
+                  if (lowerContent.includes("kumar") || lowerContent.includes("@kumar")) {
+                    shouldReply = true;
+                  }
+                } else if (!isGroup && afkConfig.replyToDMs) {
+                  shouldReply = true;
+                }
+
+                if (shouldReply) {
+                  const now = Date.now();
+                  const lastReply = lastReplyTimes.get(parsed.chat_jid) || 0;
+                  if (now - lastReply > 5 * 60 * 1000) { // 5 minutes rate limit
+                    lastReplyTimes.set(parsed.chat_jid, now);
+                    
+                    const signature = "\n\n— Sent by Antigravity Chief of Staff";
+                    const fullMessage = afkConfig.message + signature;
+                    
+                    sock.sendMessage(parsed.chat_jid, { text: fullMessage })
+                      .then((sentMsg) => {
+                        if (sentMsg && sentMsg.key) {
+                          const parsedSent = {
+                            id: sentMsg.key.id!,
+                            chat_jid: parsed.chat_jid,
+                            sender: null,
+                            content: fullMessage,
+                            timestamp: new Date(),
+                            is_from_me: true
+                          };
+                          storeMessage(parsedSent);
+                        }
+                      })
+                      .catch((err) => {
+                        logger.error({ err, chatId: parsed.chat_jid }, "Failed to send AFK auto-reply");
+                      });
+                  }
+                }
+              }
             }
           } else {
             logger.warn(

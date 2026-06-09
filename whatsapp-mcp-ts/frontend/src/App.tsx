@@ -14,6 +14,7 @@ import {
   Crosshair,
   Loader,
   TrendingUp,
+  Sliders,
   Shield,
   Zap
 } from "lucide-react";
@@ -101,6 +102,15 @@ export default function App() {
   const [deadlinesList, setDeadlinesList] = useState<DeadlineDetails[]>([]);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
+  // AFK Mode States
+  const [afkState, setAfkState] = useState({
+    active: false,
+    message: "",
+    replyToMentions: true,
+    replyToDMs: true
+  });
+  const [showAfkSettings, setShowAfkSettings] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -124,11 +134,45 @@ export default function App() {
     }, 4000);
   };
 
+  const fetchAfk = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/afk`);
+      if (res.ok) {
+        const data = await res.json();
+        setAfkState(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch AFK state", err);
+    }
+  };
+
+  const handleUpdateAfk = async (updated: typeof afkState) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/afk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAfkState(data.afkConfig);
+      }
+    } catch (err) {
+      console.error("Failed to update AFK state", err);
+    }
+  };
+
+  const handleToggleAfk = (active: boolean) => {
+    const updated = { ...afkState, active };
+    handleUpdateAfk(updated);
+  };
+
   // Poll connection status, chats and deadlines list
   useEffect(() => {
     fetchStatus();
     fetchChats();
     fetchDeadlines();
+    fetchAfk();
 
     const statusInterval = setInterval(fetchStatus, 3000);
     const chatsInterval = setInterval(fetchChats, 7000);
@@ -410,6 +454,112 @@ export default function App() {
             <RefreshCw size={13} className={syncLoading ? "animate-spin" : ""} style={{ animation: syncLoading ? "spin 1s linear infinite" : "" }} />
             {syncLoading ? "Syncing..." : "Force Sync Messages"}
           </button>
+
+          {/* AFK Toggle & Settings Button */}
+          <div style={{ position: "relative" }}>
+            <div style={{ display: "flex", gap: "4px" }}>
+              <button
+                className={`btn ${afkState.active ? "btn-primary" : ""}`}
+                style={afkState.active ? { background: "var(--color-critical)", border: "none", boxShadow: "var(--red-glow)" } : {}}
+                onClick={() => handleToggleAfk(!afkState.active)}
+              >
+                <Shield size={13} />
+                {afkState.active ? "AFK ACTIVE" : "AFK OFF"}
+              </button>
+              <button
+                className="btn"
+                style={{ padding: "6px 8px" }}
+                onClick={() => setShowAfkSettings(!showAfkSettings)}
+              >
+                <Sliders size={13} />
+              </button>
+            </div>
+
+            {showAfkSettings && (
+              <div 
+                style={{ 
+                  position: "absolute", 
+                  top: "40px", 
+                  right: "0", 
+                  width: "280px", 
+                  background: "var(--bg-card)", 
+                  border: "1px solid var(--border-color)", 
+                  borderRadius: "var(--radius-lg)", 
+                  padding: "16px", 
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.5)", 
+                  zIndex: 100 
+                }}
+              >
+                <h4 style={{ fontSize: "12px", marginBottom: "10px", color: "var(--text-primary)" }}>
+                  Configure AFK Auto-Responder
+                </h4>
+                
+                <div style={{ marginBottom: "10px" }}>
+                  <label style={{ fontSize: "10px", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>
+                    Auto-Reply Message:
+                  </label>
+                  <textarea
+                    style={{ 
+                      width: "100%", 
+                      height: "60px", 
+                      background: "var(--bg-primary)", 
+                      border: "1px solid var(--border-color)", 
+                      borderRadius: "var(--radius-sm)", 
+                      color: "var(--text-primary)", 
+                      padding: "6px", 
+                      fontSize: "11px", 
+                      fontFamily: "var(--font-sans)",
+                      resize: "none"
+                    }}
+                    value={afkState.message}
+                    onChange={(e) => setAfkState({ ...afkState, message: e.target.value })}
+                  />
+                  <div style={{ fontSize: "9px", color: "var(--text-muted)", marginTop: "2px" }}>
+                    Signature will be automatically appended.
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", cursor: "pointer", color: "var(--text-secondary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={afkState.replyToDMs}
+                      onChange={(e) => setAfkState({ ...afkState, replyToDMs: e.target.checked })}
+                    />
+                    Reply to Direct Messages (DMs)
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", cursor: "pointer", color: "var(--text-secondary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={afkState.replyToMentions}
+                      onChange={(e) => setAfkState({ ...afkState, replyToMentions: e.target.checked })}
+                    />
+                    Reply to Group Mentions (@Kumar)
+                  </label>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                  <button 
+                    className="btn" 
+                    style={{ padding: "4px 10px", fontSize: "10px" }}
+                    onClick={() => setShowAfkSettings(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: "4px 10px", fontSize: "10px" }}
+                    onClick={() => {
+                      handleUpdateAfk(afkState);
+                      setShowAfkSettings(false);
+                    }}
+                  >
+                    Save Config
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
