@@ -132,7 +132,7 @@ export async function startWhatsAppConnection(
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
     generateHighQualityLinkPreview: true,
-    shouldIgnoreJid: (jid) => !jid || jid.endsWith("@broadcast"),
+    shouldIgnoreJid: (jid) => !jid || jid.endsWith("@broadcast") || jid.endsWith("@newsletter"),
   });
 
   // Keep a reference to current socket in container

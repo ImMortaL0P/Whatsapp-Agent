@@ -88,6 +88,8 @@ export default function App() {
     { id: 5, text: "Browse Case Comp rules for Unstop AIRankers challenge", deadline: "Next week", priority: "P3", done: false, source: "Case Comp by Unstop" }
   ]);
 
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>("Never");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -147,6 +149,7 @@ export default function App() {
       if (res.ok) {
         const data = (await res.json()) as Chat[];
         setChats(data);
+        setLastSyncedTime(new Date().toLocaleTimeString());
       }
     } catch (err) {
       console.error("Failed to fetch chats", err);
@@ -204,6 +207,7 @@ export default function App() {
           fetchStatus();
           fetchChats();
           setSyncLoading(false);
+          setLastSyncedTime(new Date().toLocaleTimeString());
           setTerminalHistory(prev => [
             ...prev,
             { type: "info", text: "WhatsApp connection restarted successfully. Sync complete." }
@@ -358,6 +362,11 @@ export default function App() {
             </button>
           )}
 
+          {lastSyncedTime && (
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", marginRight: "8px" }}>
+              Last sync: {lastSyncedTime}
+            </span>
+          )}
           <button
             className="btn"
             onClick={handleForceSync}

@@ -23,6 +23,7 @@ export type Message = {
   timestamp: Date;
   is_from_me: boolean;
   chat_name?: string | null;
+  sender_name?: string | null;
 };
 
 let dbInstance: DatabaseSync | null = null;
@@ -181,6 +182,7 @@ function rowToMessage(row: any): Message {
     timestamp: parseDateSafe(row.timestamp)!,
     is_from_me: Boolean(row.is_from_me),
     chat_name: row.chat_name,
+    sender_name: row.sender_name ?? null,
   };
 }
 
@@ -206,13 +208,14 @@ export function getMessages(
   try {
     const offset = page * limit;
     const stmt = db.prepare(`
-            SELECT m.*, c.name as chat_name
+            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
-            WHERE m.chat_jid = ? -- Positional parameter 1
+            LEFT JOIN contacts ct ON m.sender = ct.jid
+            WHERE m.chat_jid = ?
             ORDER BY m.timestamp DESC
-            LIMIT ?             -- Positional parameter 2
-            OFFSET ?            -- Positional parameter 3
+            LIMIT ?
+            OFFSET ?
         `);
     const rows = stmt.all(chatJid, limit, offset) as any[];
     return rows.map(rowToMessage);
@@ -249,12 +252,13 @@ export function getChats(
                 }
             FROM chats c
             LEFT JOIN contacts ct ON c.jid = ct.jid
+            WHERE c.jid NOT LIKE '%@newsletter'
         `;
 
     const params: (string | number)[] = [];
 
     if (query) {
-      sql += ` WHERE (LOWER(COALESCE(c.name, ct.name, ct.notify, ct.phone_number)) LIKE LOWER(?) OR c.jid LIKE ?)`;
+      sql += ` AND (LOWER(COALESCE(c.name, ct.name, ct.notify, ct.phone_number)) LIKE LOWER(?) OR c.jid LIKE ?)`;
       params.push(`%${query}%`, `%${query}%`);
     }
 
@@ -325,10 +329,11 @@ export function getMessagesAround(
 
   try {
     const targetStmt = db.prepare(`
-             SELECT m.*, c.name as chat_name
+             SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
              FROM messages m
              JOIN chats c ON m.chat_jid = c.jid
-             WHERE m.id = ? -- Positional parameter 1
+             LEFT JOIN contacts ct ON m.sender = ct.jid
+             WHERE m.id = ?
         `);
     const targetRow = targetStmt.get(messageId) as any | undefined;
 
@@ -340,12 +345,13 @@ export function getMessagesAround(
     const chatJid = result.target.chat_jid;
 
     const beforeStmt = db.prepare(`
-            SELECT m.*, c.name as chat_name
+            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
-            WHERE m.chat_jid = ? AND m.timestamp < ? -- Positional params 1, 2
+            LEFT JOIN contacts ct ON m.sender = ct.jid
+            WHERE m.chat_jid = ? AND m.timestamp < ?
             ORDER BY m.timestamp DESC
-            LIMIT ?                                  -- Positional param 3
+            LIMIT ?
         `);
     const beforeRows = beforeStmt.all(
       chatJid,
@@ -355,12 +361,13 @@ export function getMessagesAround(
     result.before = beforeRows.map(rowToMessage).reverse();
 
     const afterStmt = db.prepare(`
-            SELECT m.*, c.name as chat_name
+            SELECT m.*, c.name as chat_name, COALESCE(ct.name, ct.notify, ct.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
-            WHERE m.chat_jid = ? AND m.timestamp > ? -- Positional params 1, 2
+            LEFT JOIN contacts ct ON m.sender = ct.jid
+            WHERE m.chat_jid = ? AND m.timestamp > ?
             ORDER BY m.timestamp ASC
-            LIMIT ?                                  -- Positional param 3
+            LIMIT ?
         `);
     const afterRows = afterStmt.all(chatJid, targetTimestamp, after) as any[];
     result.after = afterRows.map(rowToMessage);
@@ -416,11 +423,13 @@ export function searchMessages(
     const offset = page * limit;
     const searchPattern = `%${searchQuery}%`;
     let sql = `
-            SELECT m.*, COALESCE(c.name, ct.name, ct.notify, ct.phone_number) as chat_name
+            SELECT m.*, COALESCE(c.name, ct.name, ct.notify, ct.phone_number) as chat_name,
+                   COALESCE(cts.name, cts.notify, cts.phone_number) as sender_name
             FROM messages m
             JOIN chats c ON m.chat_jid = c.jid
             LEFT JOIN contacts ct ON c.jid = ct.jid
-            WHERE LOWER(m.content) LIKE LOWER(?) -- Param 1: searchPattern
+            LEFT JOIN contacts cts ON m.sender = cts.jid
+            WHERE LOWER(m.content) LIKE LOWER(?)
         `;
     const params: (string | number | null)[] = [searchPattern];
 
@@ -496,7 +505,7 @@ export function getUnreadMessagesGrouped(): UnreadGroup[] {
   try {
     // 1. Get all chats with unread_count > 0
     const chatsStmt = db.prepare(`
-      SELECT jid, name, unread_count FROM chats WHERE unread_count > 0
+      SELECT jid, name, unread_count FROM chats WHERE unread_count > 0 AND jid NOT LIKE '%@newsletter'
     `);
     const chatRows = chatsStmt.all() as any[];
     const unreadGroups: UnreadGroup[] = [];

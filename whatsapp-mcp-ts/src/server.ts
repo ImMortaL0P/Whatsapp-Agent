@@ -293,7 +293,7 @@ app.get("/api/chats/:jid/messages", (req, res) => {
       id: m.id,
       chatJid: m.chat_jid,
       sender: m.sender,
-      senderDisplay: m.sender ? m.sender.split("@")[0] : m.is_from_me ? "Me" : "Unknown",
+      senderDisplay: m.is_from_me ? "Me" : m.sender_name || (m.sender ? m.sender.split("@")[0] : "Unknown"),
       content: m.content,
       timestamp: m.timestamp,
       isFromMe: m.is_from_me,
@@ -343,7 +343,7 @@ app.get("/api/unread-summary", async (req, res) => {
     unread.forEach((group) => {
       prompt += `Group: ${group.name} (${group.unread_count} unread messages)\n`;
       group.messages.forEach((m) => {
-        const sender = m.sender ? m.sender.split("@")[0] : "Sender";
+        const sender = m.sender_name || (m.sender ? m.sender.split("@")[0] : "Sender");
         prompt += `[${m.timestamp.toISOString()}] ${sender}: ${m.content}\n`;
       });
       prompt += "\n";
@@ -362,7 +362,7 @@ app.get("/api/unread-summary", async (req, res) => {
         unreadCount: g.unread_count,
         messages: g.messages.map(m => ({
           content: m.content,
-          sender: m.sender ? m.sender.split("@")[0] : "Other",
+          sender: m.sender_name || (m.sender ? m.sender.split("@")[0] : "Other"),
           timestamp: m.timestamp
         }))
       }))
