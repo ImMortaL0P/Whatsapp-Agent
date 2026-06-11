@@ -290,11 +290,9 @@ export async function startWhatsAppConnection(
                 notify: parsed.sender_name,
               });
             }
-            
-            // Increment unread count if it's a new incoming notification message
-            if (!parsed.is_from_me && type === "notify") {
-              incrementUnreadCount(parsed.chat_jid);
 
+            // Rely directly on phone-side unread counts sent via Baileys events.
+            if (!parsed.is_from_me && type === "notify") {
               // AFK Auto-Reply Trigger
               if (afkConfig.active) {
                 const isGroup = parsed.chat_jid.endsWith("@g.us");
@@ -302,7 +300,14 @@ export async function startWhatsAppConnection(
 
                 if (isGroup && afkConfig.replyToMentions) {
                   const lowerContent = parsed.content.toLowerCase();
-                  if (lowerContent.includes("kumar") || lowerContent.includes("@kumar")) {
+                  const userJid = socketContainer.sock?.user?.id || "";
+                  const userPhone = userJid.split(":")[0]?.split("@")[0] || "";
+                  
+                  const isDirectTag = userPhone && lowerContent.includes(`@${userPhone}`);
+                  const isNameMention = lowerContent.includes("kumar");
+                  const isGroupTag = lowerContent.includes("@everyone") || lowerContent.includes("@all") || lowerContent.includes("@participants");
+                  
+                  if (isDirectTag || isNameMention || isGroupTag) {
                     shouldReply = true;
                   }
                 } else if (!isGroup && afkConfig.replyToDMs) {
@@ -373,13 +378,19 @@ export async function startWhatsAppConnection(
         "Received chats.update event"
       );
       for (const chatUpdate of events["chats.update"]) {
+        const extraData: any = {};
+        if (chatUpdate.unreadCount !== undefined) {
+          // If unreadCount is less than 0, it indicates read/decrement, so set to 0.
+          extraData.unread_count = chatUpdate.unreadCount < 0 ? 0 : chatUpdate.unreadCount;
+        }
+
         storeChat({
           jid: chatUpdate.id!,
           name: chatUpdate.name,
-          unread_count: chatUpdate.unreadCount,
           last_message_time: chatUpdate.conversationTimestamp
             ? new Date(Number(chatUpdate.conversationTimestamp) * 1000)
             : undefined,
+          ...extraData
         });
       }
     }

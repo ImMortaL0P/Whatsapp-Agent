@@ -92,7 +92,7 @@ code, pre {
 
 .main-content {
   display: grid;
-  grid-template-columns: 320px 1fr 380px;
+  grid-template-columns: 320px minmax(0, 1fr) 380px;
   height: 100%;
   overflow: hidden;
   border-bottom: 1px solid var(--border-color);
@@ -107,6 +107,7 @@ code, pre {
   height: 100%;
   overflow: hidden;
   position: relative;
+  min-width: 0;
 }
 
 .panel:last-child {
@@ -139,6 +140,7 @@ code, pre {
 .panel-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
 }
 
@@ -244,6 +246,14 @@ code, pre {
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
+}
+
+.btn-header {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  gap: 4px !important;
+  height: 28px !important;
+  line-height: 1 !important;
 }
 
 .btn:hover {
@@ -404,6 +414,8 @@ code, pre {
   border-radius: var(--radius-lg);
   padding: 16px;
   transition: transform 0.2s, box-shadow 0.2s;
+  width: 100%;
+  min-width: 0;
 }
 
 .card:hover {
@@ -445,14 +457,9 @@ code, pre {
 /* Task Matrix */
 .matrix-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
-}
-
-@media(max-width: 1000px) {
-  .matrix-grid {
-    grid-template-columns: 1fr;
-  }
+  width: 100%;
 }
 
 .matrix-quadrant {
@@ -748,3 +755,79 @@ code, pre {
   z-index: 0;
   transform-origin: 0 0;
 }
+
+/* Responsive Media Queries */
+@media (max-width: 1200px) {
+  .main-content {
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app-container {
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+  }
+  
+  .main-content {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+  
+  /* Hide the AI command terminal on smaller screens or place it nicely */
+  .main-content > aside:last-child {
+    display: none;
+  }
+
+  .bottom-panel {
+    grid-template-columns: 1fr 1fr;
+    height: auto;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    grid-template-rows: auto;
+    height: auto;
+    overflow-y: auto;
+  }
+
+  .main-content {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .bottom-panel {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+/* Custom Responsive Rules for Header elements to prevent going out of bounds */
+@media (max-width: 1250px) {
+  .header-actions {
+    gap: 8px !important;
+  }
+  .status-pill {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
+    height: 28px !important;
+  }
+  .header-sync-time {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .header-actions .btn-text {
+    display: none !important;
+  }
+  .app-header {
+    padding: 0 10px !important;
+  }
+  .brand-badge {
+    display: none !important;
+  }
+}
+
