@@ -30,7 +30,7 @@ This starts:
 
 1. **Smart Chat Navigator (Left Panel)**:
    - Synchronized with your real WhatsApp database.
-   - Categorizes chats into **Priority B-School Threads (Tier 1)** (detecting GLIM, GIM, IIM, IMT, AceMBA, Case Comps, etc.), **Direct Messages (DMs)** (Satyam, Archit Raj, Ameesha, etc.), and **General Groups (Tier 2/3)**.
+   - Categorizes chats into **Priority B-School Threads (Tier 1)** ( etc.), **Direct Messages (DMs)** (etc.), and **General Groups (Tier 2/3)**.
    - Computes live **AI Priority Scores** (10-99) and flags **Deadline Risks** / **Unread Counts** / **Mentions** for each chat.
 
 2. **AI Intelligence Feed (Center Panel)**:
